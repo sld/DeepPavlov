@@ -46,7 +46,8 @@ class GoalOrientedBot(Inferable, Trainable):
                  embedder=None,
                  slot_filler=None,
                  intent_classifier=None,
-                 use_action_mask=False,
+                 action_mask=False,
+                 welcome_message=True,
                  debug=False,
                  num_epochs=200,
                  val_patience=10,
@@ -57,7 +58,6 @@ class GoalOrientedBot(Inferable, Trainable):
         super().__init__(save_path=save_path, train_now=train_now, mode=kwargs['mode'])
 
         self.episode_done = True
-        self.use_action_mask = use_action_mask
         self.debug = debug
         self.slot_filler = slot_filler
         self.intent_classifier = intent_classifier
@@ -69,6 +69,8 @@ class GoalOrientedBot(Inferable, Trainable):
         self.word_vocab = vocabs['word_vocab']
         self.num_epochs = num_epochs
         self.val_patience = val_patience
+        self.use_action_mask = action_mask
+        self.welcome_message = welcome_message
 
         self.templates = Templates(template_type).load(template_path)
         print("[using {} templates from `{}`]".format(len(self.templates), template_path))
@@ -160,15 +162,21 @@ class GoalOrientedBot(Inferable, Trainable):
         return template.generate_text(slots)
 
     def _action_mask(self):
+
         action_mask = np.ones(self.n_actions, dtype=np.float32)
+
         if self.use_action_mask:
-            # TODO: non-ones action mask
+            known_entities = {**self.tracker.get_state(), **(self.db_result or {})}
             for a_id in range(self.n_actions):
                 tmpl = str(self.templates.templates[a_id])
-                for entity in re.findall('#{}', tmpl):
-                    if entity not in self.tracker.get_state() \
-                            and entity not in (self.db_result or {}):
+                for entity in set(re.findall('#([A-Za-z]+)', tmpl)):
+                    if entity not in known_entities:
                         action_mask[a_id] = 0
+
+        if not self.welcome_message:
+            hello_id = self.templates.actions.index("welcomemsg")
+            action_mask[hello_id] = 0
+
         return action_mask
 
     @check_attr_true('train_now')

@@ -62,6 +62,7 @@
     "num_epochs": 1,
     "val_patience": 10,
     "template_path": "../download/dstc2/dstc2-templates.txt",
+    "action_mask": false,
     "network": {
       "train_now": true,
       "load_path": "../download/go_bot_rnn/model",
@@ -70,7 +71,6 @@
       "learning_rate": 0.02,
       "hidden_dim": 128,
       "obs_size": 830,
-      "use_action_mask": false,
       "action_size": 45
     },
     "slot_filler": {
