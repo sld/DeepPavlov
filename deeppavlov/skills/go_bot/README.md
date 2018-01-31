@@ -57,6 +57,7 @@ To use a go_bot model you should have:
 * `num_epochs` — maximum number of epochs during training _(optional)_
 * `val_patience` — stop training after `val_patience` epochs without improvement of turn accuracy on validation dialogs _(optional)_
 * `template_path` — map from actions to text templates for response generation
+* `use_action_mask` — in case of true, action mask is applied to network output
 * `vocabs` — vocabs used in model
    * `word_vocab` — vocabulary of tokens from context utterances
       * `train_now` — whether to train it on the current dataset, or use pretrained
@@ -87,7 +88,6 @@ To use a go_bot model you should have:
    * `learning_rate` — learning rate during training
    * `hidden_dim` — hidden state dimension
    * `obs_size` — input observation size (must be set to number of `bow_embedder` features, `embedder` features, `intent_classifier` features, context features(=2) plus `tracker` state size plus action size)
-   * `use_action_mask` — in case of true, action mask is applied to probability distribution
    * `action_size` — output action size
 * `slot_filler` — model that predicts slot values for a given utterance
    * `name` — slot filler name (`"dstc_slotfilling"` recommended, for implementation see [`deeppavlov.models.ner`](../../models/ner))
