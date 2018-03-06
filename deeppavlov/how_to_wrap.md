@@ -99,14 +99,12 @@ import sys
 
 from deeppavlov.core.common.attributes import check_attr_true
 from deeppavlov.core.common.registry import register
-from deeppavlov.core.models.tf_backend import TfModelMeta
-from deeppavlov.core.models.trainable import Trainable
-from deeppavlov.core.models.inferable import Inferable
+from deeppavlov.core.models.tf_backend import NNModel
 from deeppavlov.models.ner.ner_network import NerNetwork as YourNetwork # <- HERE
 
 
 @register('adapter')
-class Adapter(Trainable, Inferable, metaclass=TfModelMeta):
+class Adapter(NNModel):
     def __init__(self, **kwargs):
         """ Initialize the model and additional parent classes attributes
 
@@ -132,10 +130,6 @@ class Adapter(Trainable, Inferable, metaclass=TfModelMeta):
         # we use deepcopy
         opt = deepcopy(kwargs)
 
-        # Get vocabularies. Vocabularies are made to perform token -> index / index -> token
-        # transformations as well as class -> index / index -> class for classification tasks
-        self.vocabs = opt.get('vocabs', None)
-
         # Find all input parameters of the network __init__ to pass them into network later
         network_parameter_names = list(inspect.signature(YourNetwork.__init__).parameters)
         # Fill all provided parameters from opt (opt is a dictionary formed from the model
@@ -157,7 +151,6 @@ class Adapter(Trainable, Inferable, metaclass=TfModelMeta):
         # Try to load the model (if there are some model files the model will be loaded from them)
         self.load()
 
-    @overrides
     def load(self):
         """Check existence of the model file, load the model if the file exists"""
 
@@ -175,7 +168,6 @@ class Adapter(Trainable, Inferable, metaclass=TfModelMeta):
             print('[loading model from {}]'.format(path), file=sys.stderr)
             self._net.load(path)
 
-    @overrides
     def save(self):
         """Save model to the save_path, provided in config. The directory is
         already created by super().__init__ part in called in __init__ of this class"""
@@ -183,25 +175,19 @@ class Adapter(Trainable, Inferable, metaclass=TfModelMeta):
         print('[saving model to {}]'.format(path), file=sys.stderr)
         self._net.save(path)
 
-    @overrides
-    @check_attr_true('train_now')
-    def train(self, data, *args, **kwargs):
+    def train_on_batch(self, x: list, y: list):
         """ Perform training of the network given the dataset data
 
         Args:
-            data: a dict with fields 'train', 'valid', and 'test', each field
-                  contains a list of pairs (x, y), each pair is tuple, each pair
-                  is a sample from the dataset. Batches are formed from the samples
-            *args: not used
-            **kwargs: not used
+            x: an x batch
+            y: an y batch
 
         Returns:
 
         """
-        self._net.train(data, **self.train_parameters)
+        self._net.train_on_batch(x, y, **self.train_parameters)
 
-    @overrides
-    def infer(self, instance):
+    def __call__(self, x_batch):
         """Infer is similar to predict, however it should work with single samples,
         not batches.
 
@@ -209,18 +195,5 @@ class Adapter(Trainable, Inferable, metaclass=TfModelMeta):
             instance: a single x sample, not batch!
 
         """
-        return self._net.predict_on_single_sample(instance)
-
-    def interact(self):
-        """Interactive inferrence. Type your x and get y printed"""
-        s = input('Type in your x: ')
-        prediction = self.infer(s)
-        print(prediction)
-
-    def shutdown(self):
-        pass
-
-    def reset(self):
-        pass
-
+        return self._net.predict_on_batch(x_batch)
 ```
