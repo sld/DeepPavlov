@@ -107,6 +107,11 @@ class GoalOrientedBot(NNModel):
         emb_features = []
         if callable(self.embedder):
             emb_features = self.embedder([tokenized], mean=True)[0]
+            # random embedding instead of zeros
+            if np.all(emb_features < 1e-20):
+                emb_dim = self.embedder.dim
+                emb_features = np.fabs(np.random.normal(0, 1, emb_dim) / emb_dim)
+
 
         # Intent features
         intent_features = []
