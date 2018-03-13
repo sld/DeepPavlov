@@ -43,10 +43,10 @@ log = get_logger(__name__)
 class GoalOrientedBot(NNModel):
     def __init__(self, template_path,
                  template_type: Type = DualTemplate,
-                 bow_encoder: Type = BoWEncoder,
                  tokenizer: Type = SpacyTokenizer,
                  tracker: Type = DefaultTracker,
                  network: Type = GoalOrientedBotNetwork,
+                 bow_encoder=None,
                  embedder=None,
                  slot_filler=None,
                  intent_classifier=None,
@@ -98,8 +98,10 @@ class GoalOrientedBot(NNModel):
             log.debug("Text tokens = `{}`".format(tokenized))
 
         # Bag of words features
-        bow_features = self.bow_encoder([tokenized], self.word_vocab)[0]
-        bow_features = bow_features.astype(np.float32)
+        bow_features = []
+        if callable(self.bow_encoder):
+            bow_features = self.bow_encoder([tokenized], self.word_vocab)[0]
+            bow_features = bow_features.astype(np.float32)
 
         # Embeddings
         emb_features = []
