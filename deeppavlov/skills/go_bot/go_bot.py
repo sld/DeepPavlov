@@ -195,7 +195,7 @@ class GoalOrientedBot(NNModel):
             # self.network.train(d_features, d_actions, d_masks)
             self.network.train_on_batch([d_features, d_masks], d_actions)
 
-    def _infer(self, context, db_result=None, prob=False):
+    def _infer(self, context, db_result=None, prob=True):
         # TODO: check if prob=True works better
         probs = self.network(
             self._encode_context(context, db_result),
