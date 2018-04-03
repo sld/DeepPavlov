@@ -1,0 +1,26 @@
+{
+  "dataset_reader": {
+    "name": "opensubtitles_reader",
+    "data_path": "data/"
+  },
+  "dataset_iterator": {
+    "name": "opensubtitles_iterator",
+    "seed": 1337,
+    "shuffle": false
+  },
+  "chainer": {
+    "in": ["source_sentence"],
+    "in_y": ["target_sentence"],
+    "pipe": [
+      {
+        "name": "opensubtitles_preprocessor",
+        "id": "os_prepr",
+        "in": ["source_sentence"],
+        "out": ["source_tokens"]
+      }
+    ],
+    "out": ["source_tokens"]
+  },
+  "train": {}
+}
+

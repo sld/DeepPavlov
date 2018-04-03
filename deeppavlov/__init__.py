@@ -13,6 +13,7 @@ import deeppavlov.dataset_readers.conll2003_reader
 import deeppavlov.dataset_readers.typos_reader
 import deeppavlov.dataset_readers.basic_classification_reader
 import deeppavlov.dataset_readers.squad_dataset_reader
+import deeppavlov.dataset_iterators.os_iterator
 import deeppavlov.dataset_iterators.dialog_iterator
 import deeppavlov.dataset_iterators.kvret_dialog_iterator
 import deeppavlov.dataset_iterators.dstc2_ner_iterator
@@ -20,6 +21,7 @@ import deeppavlov.dataset_iterators.dstc2_intents_iterator
 import deeppavlov.dataset_iterators.typos_iterator
 import deeppavlov.dataset_iterators.basic_classification_iterator
 import deeppavlov.dataset_iterators.squad_iterator
+import deeppavlov.dataset_iterators.os_iterator
 import deeppavlov.models.classifiers.intents.intent_model
 import deeppavlov.models.commutators.random_commutator
 import deeppavlov.models.embedders.fasttext_embedder
@@ -32,6 +34,7 @@ import deeppavlov.models.trackers.hcn_at
 import deeppavlov.models.trackers.hcn_et
 import deeppavlov.models.preprocessors.str_lower
 import deeppavlov.models.preprocessors.squad_preprocessor
+import deeppavlov.models.preprocessors.os_preprocessor
 import deeppavlov.models.ner.ner
 import deeppavlov.models.tokenizers.spacy_tokenizer
 import deeppavlov.models.tokenizers.split_tokenizer
