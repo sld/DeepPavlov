@@ -16,10 +16,10 @@
         "name": "opensubtitles_preprocessor",
         "id": "os_prepr",
         "in": ["source_sentence"],
-        "out": ["source_tokens"]
+        "out": ["target_predicted_tokens"]
       }
     ],
-    "out": ["source_tokens"]
+    "out": ["target_predicted_tokens"]
   },
   "train": {}
 }
