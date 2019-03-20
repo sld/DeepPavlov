@@ -14,6 +14,7 @@
 
 import json
 import re
+import numpy as np
 from tqdm import tqdm
 from pathlib import Path
 from typing import Dict, List, Union, Tuple
@@ -25,6 +26,7 @@ from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.dataset_reader import DatasetReader
 from deeppavlov.core.data.utils import download_decompress, mark_done
 
+import deeppavlov.contrib.multiwoz_db_pointer as db_pointer
 
 log = getLogger()
 
@@ -533,6 +535,52 @@ class MultiWOZDatasetReader(DatasetReader):
         return dic
 
     @classmethod
+    def add_db_pointer(cls, turn):
+        """Create database pointer for all related domains."""
+        domains = ['restaurant', 'hotel', 'attraction', 'train']
+        pointer_vector = np.zeros(6 * len(domains))
+        for domain in domains:
+            num_entities = db_pointer.query_result(domain, turn)
+            pointer_vector = db_pointer.one_hot_vector(num_entities, domain, pointer_vector)
+
+        return pointer_vector
+
+    @classmethod
+    def add_booking_pointer(cls, task, turn, pointer_vector):
+        """Add information about availability of the booking option."""
+        # Booking pointer
+        rest_vec = np.array([1, 0])
+        if task['goal']['restaurant']:
+            if "book" in turn['metadata']['restaurant']:
+                if "booked" in turn['metadata']['restaurant']['book']:
+                    if turn['metadata']['restaurant']['book']["booked"]:
+                        if "reference" in turn['metadata']['restaurant']['book']["booked"][0]:
+                            rest_vec = np.array([0, 1])
+
+        hotel_vec = np.array([1, 0])
+        if task['goal']['hotel']:
+            if "book" in turn['metadata']['hotel']:
+                if "booked" in turn['metadata']['hotel']['book']:
+                    if turn['metadata']['hotel']['book']["booked"]:
+                        if "reference" in turn['metadata']['hotel']['book']["booked"][0]:
+                            hotel_vec = np.array([0, 1])
+
+        train_vec = np.array([1, 0])
+        if task['goal']['train']:
+            if "book" in turn['metadata']['train']:
+                if "booked" in turn['metadata']['train']['book']:
+                    if turn['metadata']['train']['book']["booked"]:
+                        if "reference" in turn['metadata']['train']['book']["booked"][0]:
+                            train_vec = np.array([0, 1])
+
+        pointer_vector = np.append(pointer_vector, rest_vec)
+        pointer_vector = np.append(pointer_vector, hotel_vec)
+        pointer_vector = np.append(pointer_vector, train_vec)
+
+        return pointer_vector
+
+
+    @classmethod
     def preprocess_data(cls, data_file: Union[str, Path],
                         act_data_file: Union[str, Path],
                         databases: Dict[str, Union[str, Path]]) -> Dict:
@@ -573,6 +621,14 @@ class MultiWOZDatasetReader(DatasetReader):
                 dialogue['log'][idx]['tokens'] = tokens
                 dialogue['log'][idx]['text'] = ' '.join(tokens)
                 dialogue['log'][idx]['tags'] = tags
+
+                if idx % 2 == 1:  # if it's a system turn
+                    # add database pointer
+                    pointer_vector = cls.add_db_pointer(turn)
+                    # add booking pointer
+                    pointer_vector = cls.add_booking_pointer(dialogue, turn, pointer_vector)
+                    #print pointer_vector
+                    dialogue['log'][idx - 1]['db_pointer'] = pointer_vector.tolist()
 
                 idx_acts += 1
 
