@@ -118,7 +118,8 @@ class MultiWOZDatasetReader(DatasetReader):
     @staticmethod
     def _format_turn(turn):
         x = {'text': turn[0]['text'],
-             'dialog_id': turn[0]['dialog_id']}
+             'dialog_id': turn[0]['dialog_id'],
+             'db_pointer': turn[0]['db_pointer']}
         if turn[0].get('episode_done') is not None:
             x['episode_done'] = turn[0]['episode_done']
         y = {'text': turn[1]['text'],
@@ -173,13 +174,17 @@ class MultiWOZDatasetReader(DatasetReader):
                 if i == 0:
                     replica['episode_done'] = True
                 is_user = bool(turn['metadata'] == {})
+                db_pointer_dim = 30
+                default_db_pointer = [0]*db_pointer_dim
                 if is_user:
                     replica['dialog_id'] = dialog_id
                     replica['tags'] = turn['tags']
+                    replica['db_pointer'] = turn.get('db_pointer', default_db_pointer)
                     utterances.append(replica)
                 else:
                     replica['domains'] = domains
                     replica['state'] = turn['metadata']
+                    # replica['db_pointer'] = turn.get('db_pointer', default_db_pointer)
                     responses.append(replica)
 
             # if last replica was by driver
