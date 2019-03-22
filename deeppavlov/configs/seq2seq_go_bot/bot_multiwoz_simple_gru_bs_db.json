@@ -64,7 +64,7 @@
         "out": ["state_feats"]
       },
       {
-        "in": ["x_tokens", "history_tok_list", "state_feats"],
+        "in": ["x_tokens", "history_tok_list", "state_feats", "db_pointer"],
         "in_y": ["y_tokens"],
         "out": ["prediction_tokens", "confidence"],
         "main": true,
@@ -79,6 +79,7 @@
           "l2_regs": [0.0, 0.0],
           "cell_type": "gru",
           "intent_feature_size": "#state_featurizer.len",
+          "db_feature_size": 100500,
           "encoder_agg_method": "concat",
           "encoder_use_cudnn": true,
           "learning_rate": 3e-4,
@@ -133,7 +134,7 @@
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
       "MODELS_PATH": "{ROOT_PATH}/models",
-      "BOT_PATH": "{MODELS_PATH}/bot_multiwoz_simple_gru_bs"
+      "BOT_PATH": "{MODELS_PATH}/bot_multiwoz_simple_gru_bs_db"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",

@@ -65,6 +65,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
 
     GRAPH_PARAMS = ['hidden_size', 'knowledge_base_size', 'target_vocab_size',
                     'embedding_size', 'intent_feature_size',
+                    'db_feature_size',
                     'encoder_agg_method', 'encoder_agg_size',
                     'kb_embedding_control_sum', 'kb_attention_hidden_sizes',
                     'cell_type']
@@ -79,6 +80,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                  kb_attention_hidden_sizes: List[int] = [],
                  cell_type: str = 'lstm',
                  intent_feature_size: int = 0,
+                 db_feature_size: int = 0,
                  encoder_use_cudnn: bool = False,
                  encoder_agg_method: str = "sum",
                  beam_width: int = 1,
@@ -116,6 +118,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
             'kb_embedding_control_sum': float(np.sum(self.kb_embedding)),
             'cell_type': cell_type,
             'intent_feature_size': int(intent_feature_size or 0),
+            'db_feature_size': int(db_feature_size or 0),
             'encoder_use_cudnn': encoder_use_cudnn,
             'encoder_agg_method': encoder_agg_method,
             'encoder_agg_size': encoder_agg_size,
@@ -154,6 +157,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
         self.embedding_size = self.opt['embedding_size']
         self.cell_type = self.opt['cell_type'].lower()
         self.intent_feature_size = self.opt['intent_feature_size']
+        self.db_feature_size = self.opt['db_feature_size']
         self.encoder_use_cudnn = self.opt['encoder_use_cudnn']
         self.encoder_agg_size = self.opt['encoder_agg_size']
         self.encoder_agg_method = self.opt['encoder_agg_method']
@@ -583,9 +587,10 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(Seq2SeqGoalOrientedBotNetwork):
             (`targer_vocab_size` + number of knowledge base entries, embedding size).
         cell_type: type of cell to use as basic unit in encoder.
         intent_feature_size:
+        db_feature_size:
         encoder_use_cudnn: boolean indicating whether to use cudnn computed encoder or not
             (cudnn version is faster on gpu).
-        encoder_agg_method: 
+        encoder_agg_method:
         beam_width: width of beam search decoding.
         l2_regs: tuple of l2 regularization weights for decoder and ner losses.
         dropout_rate: probability of weights' dropout.

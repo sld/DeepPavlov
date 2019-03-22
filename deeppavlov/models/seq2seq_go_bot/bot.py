@@ -74,6 +74,10 @@ class Seq2SeqGoalOrientedBot(NNModel):
         network_parameters['load_path'] = load_path
         network_parameters['save_path'] = save_path
         self.use_ner_head = ('ner_n_tags' in network_parameters)
+        self.use_state_features = \
+            (network_parameters.get('intent_feature_size', 0) > 0)
+        self.use_db_features = \
+            (network_parameters.get('db_feature_size', 0) > 0)
         self.use_kb_attention = (self.kb_size != 0)
         self.network = self._init_network(network_parameters, use_ner_head=self.use_ner_head)
 
@@ -110,29 +114,22 @@ class Seq2SeqGoalOrientedBot(NNModel):
 
     def preprocess(self, *args):
         state_feats = None
+        db_pointer = itertools.repeat([])
         kb_entry_list = itertools.repeat([])
         x_tags = itertools.repeat([])
+
+        utters, history_list = args.pop(), args.pop()
+        if self.use_state_featurs:
+            state_feats = args.pop()
+        if self.use_db_pointer:
+            db_pointer = args.pop()
+        if self.use_kb_attention:
+            kb_entry_list = args.pop()
+
+        responses = args.pop()
         if self.use_ner_head:
-            if len(args) == 4:
-                utters, history_list, responses, x_tags = args
-            elif len(args) == 5:
-                if self.use_kb_attention:
-                    utters, history_list, kb_entry_list, responses, x_tags = args
-                else:
-                    utters, history_list, state_feats, responses, x_tags = args
-            elif len(args) == 6:
-                utters, history_list, state_feats, \
-                        kb_entry_list, responses, x_tags = args
-        else:
-            if len(args) == 3:
-                utters, history_list, responses = args
-            elif len(args) == 4:
-                if self.use_kb_attention:
-                    utters, history_list, kb_entry_list, responses = args
-                else:
-                    utters, history_list, state_feats, responses = args
-            elif len(args) == 5:
-                utters, history_list, state_feats, kb_entry_list, responses = args
+            x_tags = args.pop()
+
         state_feats = state_feats or [[1]] * len(utters)
 
         if self.use_ner_head:
@@ -234,6 +231,7 @@ class Seq2SeqGoalOrientedBot(NNModel):
                  utters: List[List[str]],
                  history_list: List[List[List[str]]],
                  state_feats: List[List[Any]] = None,
+                 db_feats: List[Any] = None,
                  kb_entry_list: List[dict] = itertools.repeat([])) ->\
             Tuple[List[str], List[float]]:
         b_enc_ins, b_src_lens = [], []
