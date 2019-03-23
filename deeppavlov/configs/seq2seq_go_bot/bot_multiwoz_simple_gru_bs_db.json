@@ -79,7 +79,7 @@
           "l2_regs": [0.0, 0.0],
           "cell_type": "gru",
           "intent_feature_size": "#state_featurizer.len",
-          "db_feature_size": 100500,
+          "db_feature_size": 30,
           "encoder_agg_method": "concat",
           "encoder_use_cudnn": true,
           "learning_rate": 3e-4,
@@ -94,7 +94,6 @@
           "hidden_size": 256
         },
         "debug": true,
-        "debug": false,
         "target_vocab": "#tgt_token_vocab"
       },
       {
@@ -127,7 +126,8 @@
     "log_every_n_epochs": -1,
     "log_every_n_batches": 500,
     "validate_best": true,
-    "show_examples": false
+    "show_examples": false,
+    "validate_first": false
   },
   "metadata": {
     "variables": {

@@ -117,18 +117,17 @@ class Seq2SeqGoalOrientedBot(NNModel):
         db_pointer = itertools.repeat([])
         kb_entry_list = itertools.repeat([])
         x_tags = itertools.repeat([])
+        utters, history_list, state_feats, db_pointer, responses = args
+        # if self.use_state_features:
+        #     state_feats = args.pop()
+        # if self.use_kb_attention:
+        #     kb_entry_list = args.pop()
+        # if self.use_db_features:
+        #     db_pointer = args.pop()
 
-        utters, history_list = args.pop(), args.pop()
-        if self.use_state_featurs:
-            state_feats = args.pop()
-        if self.use_db_pointer:
-            db_pointer = args.pop()
-        if self.use_kb_attention:
-            kb_entry_list = args.pop()
-
-        responses = args.pop()
-        if self.use_ner_head:
-            x_tags = args.pop()
+        # responses = args.pop()
+        # if self.use_ner_head:
+        #     x_tags = args.pop()
 
         state_feats = state_feats or [[1]] * len(utters)
 
