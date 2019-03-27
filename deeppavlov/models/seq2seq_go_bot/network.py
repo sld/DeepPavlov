@@ -53,7 +53,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
         intent_feature_size:
         encoder_use_cudnn: boolean indicating whether to use cudnn computed encoder or not
             (cudnn version is faster on gpu).
-        encoder_agg_method: 
+        encoder_agg_method:
         beam_width: width of beam search decoding.
         l2_regs: l2 regularization weight for decoder.
         dropout_rate: probability of weights' dropout.
@@ -223,6 +223,10 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
         self._intent_feats = tf.placeholder(tf.float32,
                                             [None, self.intent_feature_size],
                                             name='intent_features')
+
+        self._db_pointer = tf.placeholder(tf.float32,
+                                          [None, self.db_feature_size],
+                                          name='db_features')
         # _decoder_embedding: [tgt_vocab_size + kb_size, embedding_size]
         # TODO: try training decoder embeddings
         self._decoder_embedding = \
@@ -372,6 +376,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                                                     use_bias=False)
             else:
                 with tf.variable_scope("OutputDense"):
+                    # TODO: PUT DB FEATS IN HERE!!!
                     _projection_layer = tf.layers.Dense(self.tgt_vocab_size,
                                                         use_bias=False)
 
@@ -495,7 +500,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                 _predictions = _outputs_inf.predicted_ids[:, :, 0]
         return _logits, _predictions
 
-    def __call__(self, enc_inputs, src_seq_lens, intent_feats, kb_masks,
+    def __call__(self, enc_inputs, src_seq_lens, intent_feats, kb_masks, db_pointer,
                  prob=False):
         dec_preds = self.sess.run(
             self._dec_preds,
@@ -505,7 +510,8 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                 self._encoder_inputs: enc_inputs,
                 self._src_sequence_lengths: src_seq_lens,
                 self._intent_feats: intent_feats,
-                self._kb_mask: kb_masks
+                self._kb_mask: kb_masks,
+                self._db_pointer: db_pointer
             }
         )
 # TODO: implement infer probabilities
@@ -514,7 +520,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
         return dec_preds
 
     def train_on_batch(self, enc_inputs, dec_inputs, dec_outputs, src_seq_lens,
-                       tgt_masks, intent_feats, kb_masks):
+                       tgt_masks, intent_feats, kb_masks, db_pointer):
         _, loss, dec_loss = self.sess.run(
             [self._train_op, self._loss, self._dec_loss],
             feed_dict={
@@ -526,7 +532,8 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                 self._src_sequence_lengths: src_seq_lens,
                 self._tgt_mask: tgt_masks,
                 self._intent_feats: intent_feats,
-                self._kb_mask: kb_masks
+                self._kb_mask: kb_masks,
+                self._db_pointer: db_pointer
             }
         )
         return {'loss': loss,

@@ -185,7 +185,7 @@ class Seq2SeqGoalOrientedBot(NNModel):
                     b_src_lens, b_tgt_masks_np, b_src_tag_masks_np,
                     state_feats, b_kb_masks_np)
         return (b_enc_ins_np, b_dec_ins_np, b_dec_outs_np,
-                b_src_lens, b_tgt_masks_np, state_feats, b_kb_masks_np)
+                b_src_lens, b_tgt_masks_np, state_feats, b_kb_masks_np, db_pointer)
 
     def train_on_batch(self, *args):
         return self.network.train_on_batch(*self.preprocess(*args))
@@ -230,7 +230,7 @@ class Seq2SeqGoalOrientedBot(NNModel):
                  utters: List[List[str]],
                  history_list: List[List[List[str]]],
                  state_feats: List[List[Any]] = None,
-                 db_feats: List[Any] = None,
+                 db_pointer: List[Any] = None,
                  kb_entry_list: List[dict] = itertools.repeat([])) ->\
             Tuple[List[str], List[float]]:
         b_enc_ins, b_src_lens = [], []
@@ -269,7 +269,7 @@ class Seq2SeqGoalOrientedBot(NNModel):
             return preds, [0.5] * len(preds), tag_idxs
 
         pred_idxs = self.network(b_enc_ins_np, b_src_lens, state_feats,
-                                 b_kb_masks_np)
+                                 b_kb_masks_np, db_pointer)
         preds = self._decode_response(pred_idxs)
         if self.debug:
             log.debug("Dialog prediction = \"{}\"".format(preds[-1]))
