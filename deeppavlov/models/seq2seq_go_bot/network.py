@@ -344,17 +344,8 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                                            (self.encoder_agg_size,
                                             self.hidden_size),
                                            initializer=tf.truncated_normal_initializer(stddev=0.2))
-            _int_weights = tf.get_variable("intent_weights",
-                                           (self.intent_feature_size,
-                                            self.hidden_size),
-                                           initializer=tf.truncated_normal_initializer(stddev=0.2))
-            _db_weights = tf.get_variable("db_weights",
-                                          (self.db_feature_size,
-                                           self.hidden_size),
-                                           initializer=tf.truncated_normal_initializer(stddev=0.2))
-            outs = tf.tanh(tf.matmul(enc_feats, _enc_weights) + \
-                           tf.matmul(self._intent_feats, _int_weights) + \
-                           tf.matmul(self._db_pointer, _db_weights))
+            outs = tf.tanh(tf.matmul(enc_feats, _enc_weights))
+                # self._intent_feats, self._db_pointer], axis=1)
             # outs = tf.concat([outs, self._db_pointer], axis=1)
         return outs
 
@@ -383,8 +374,9 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
             else:
                 with tf.variable_scope("OutputDense"):
                     # TODO: PUT DB FEATS IN HERE!!!
-                    _projection_layer = tf.layers.Dense(self.tgt_vocab_size,
-                                                        use_bias=False)
+                    _projection_layer = DenseWithConcat(self.tgt_vocab_size, self._intent_feats, self._db_pointer)
+                    # _projection_layer = tf.layers.Dense(self.tgt_vocab_size,
+                    #                                     use_bias=False)
 
             def _build_step_fn(memory, memory_seq_len, init_state, scope, reuse=None):
                 with tf.variable_scope("decode_with_shared_attention", reuse=reuse):
@@ -841,4 +833,27 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(Seq2SeqGoalOrientedBotNetwork):
                 'momentum': self.get_momentum(),
                 'last_dec_loss': dec_loss,
                 'last_ner_loss': ner_loss}
+
+
+# _projection_layer = tf.layers.Dense(self.tgt_vocab_size, use_bias=False)
+class DenseWithConcat(tf.layers.Dense):
+  def __init__(self, dim, intent_feats, db_feats, **kwargs):
+    super(DenseWithConcat, self).__init__(units=dim, **kwargs)
+    self.intent_feats = intent_feats
+    self.db_feats = db_feats
+    self.dim = dim
+    self.dense = tf.layers.Dense(dim, use_bias=False)
+    
+  def __call__(self, inputs):
+    # TODO: Add tf.print to check if db feats and intent feats hadn't had cached
+    if len(inputs.shape) == 3:
+        db_feats = tf.reshape(self.db_feats, [-1, 1, 30])
+        intent_feats = tf.reshape(self.intent_feats, [-1, 1, 92])
+        x = tf.concat([inputs, intent_feats, db_feats], axis=2)
+    else:
+        db_feats = self.db_feats
+        intent_feats = self.intent_feats
+        x = tf.concat([inputs, intent_feats, db_feats], axis=1)
+    x = self.dense(x)
+    return x
 
