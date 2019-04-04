@@ -348,8 +348,14 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                                            (self.intent_feature_size,
                                             self.hidden_size),
                                            initializer=tf.truncated_normal_initializer(stddev=0.2))
+            _db_weights = tf.get_variable("db_weights",
+                                          (self.db_feature_size,
+                                           self.hidden_size),
+                                           initializer=tf.truncated_normal_initializer(stddev=0.2))
             outs = tf.tanh(tf.matmul(enc_feats, _enc_weights) + \
-                           tf.matmul(self._intent_feats, _int_weights))
+                           tf.matmul(self._intent_feats, _int_weights) + \
+                           tf.matmul(self._db_pointer, _db_weights))
+            # outs = tf.concat([outs, self._db_pointer], axis=1)
         return outs
 
     def _build_decoder(self, scope="Decoder"):
