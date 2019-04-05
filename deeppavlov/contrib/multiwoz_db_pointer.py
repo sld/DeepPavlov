@@ -93,7 +93,8 @@ def normalize(text):
 # loading databases
 domains = ['restaurant', 'hotel', 'attraction', 'train', 'taxi', 'hospital']#, 'police']
 dbs = {}
-BASE_DB_PATH = '/Users/mineralka/.deeppavlov/downloads/multiwoz/db/'
+# BASE_DB_PATH = '/Users/mineralka/.deeppavlov/downloads/multiwoz/db/'
+BASE_DB_PATH = '/mnt/245d363f-e0e4-4c4e-b228-df2ec070f242/projects/multiwoz/db'
 for domain in domains:
     db = os.path.join(BASE_DB_PATH, '{}-dbase.db'.format(domain))
     conn = sqlite3.connect(db)

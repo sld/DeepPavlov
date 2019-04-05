@@ -76,22 +76,22 @@
         "end_of_sequence_token": "<EOS>",
         "embedder": "#token_embedder",
         "network_parameters": {
-          "l2_regs": [0.0, 0.0],
+          "l2_regs": [0.00001, 0.00001],
           "cell_type": "gru",
           "intent_feature_size": "#state_featurizer.len",
           "db_feature_size": 30,
-          "encoder_agg_method": "concat",
+          "encoder_agg_method": "weight_sum",
           "encoder_use_cudnn": true,
-          "learning_rate": 3e-4,
+          "learning_rate": 5e-3,
           "learning_rate_drop_patience": 3,
           "learning_rate_drop_div": 2.0,
-          "dropout_rate": 0.5,
-          "state_dropout_rate": 0.03,
+          "dropout_rate": 0.0,
+          "state_dropout_rate": 0.0,
           "beam_width": 1,
           "target_start_of_sequence_index": "#tgt_token_vocab.__getitem__('<SOS>')",
           "target_end_of_sequence_index": "#tgt_token_vocab.__getitem__('<EOS>')",
           "target_vocab_size": "#tgt_token_vocab.len",
-          "hidden_size": 256
+          "hidden_size": 150
         },
         "debug": true,
         "target_vocab": "#tgt_token_vocab"

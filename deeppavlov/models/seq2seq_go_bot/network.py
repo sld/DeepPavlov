@@ -295,18 +295,14 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                                                          _state[1][0]])
                 _state_h = self._aggregate_encoder_outs([_state[0][1],
                                                          _state[1][1]])
-                _intent_c = self._build_intent(_state_c, scope="Intent")
-                _intent_h = self._build_intent(_state_h, scope="Intent")
-                _intent = tf.nn.rnn_cell.LSTMStateTuple(_intent_c, _intent_h)
             else:
                 _state = self._aggregate_encoder_outs(_state)
-                _intent = self._build_intent(_state, scope="Intent")
 
             # TODO: add & validate cell dropout
             # NOTE: not available for CUDNN cells?
 
         self._encoder_outputs = _outputs
-        self._intent = _intent
+        self._intent = _state
 
     def _aggregate_encoder_outs(self,
                                 outs: tf.Tensor,
@@ -843,7 +839,7 @@ class DenseWithConcat(tf.layers.Dense):
     self.db_feats = db_feats
     self.dim = dim
     self.dense = tf.layers.Dense(dim, use_bias=False)
-    
+
   def __call__(self, inputs):
     # TODO: Add tf.print to check if db feats and intent feats hadn't had cached
     if len(inputs.shape) == 3:
