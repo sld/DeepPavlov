@@ -295,8 +295,10 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                                                          _state[1][0]])
                 _state_h = self._aggregate_encoder_outs([_state[0][1],
                                                          _state[1][1]])
+                _state = self._build_intent(_state_c, self._intent_feats, self._db_pointer)
             else:
                 _state = self._aggregate_encoder_outs(_state)
+                _state = self._build_intent(_state, self._intent_feats, self._db_pointer)
 
             # TODO: add & validate cell dropout
             # NOTE: not available for CUDNN cells?
@@ -334,16 +336,23 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                 outs = tf.reduce_sum(outs, -1)
         return outs
 
-    def _build_intent(self, enc_feats, scope="Intent"):
+    def _build_intent(self, enc_feats, intent_features, db_features, scope="Intent"):
         with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
             _enc_weights = tf.get_variable("encoder_weights",
                                            (self.encoder_agg_size,
                                             self.hidden_size),
                                            initializer=tf.truncated_normal_initializer(stddev=0.2))
-            outs = tf.tanh(tf.matmul(enc_feats, _enc_weights))
-                # self._intent_feats, self._db_pointer], axis=1)
-            # outs = tf.concat([outs, self._db_pointer], axis=1)
-        return outs
+            _intent_weights = tf.get_variable("intent_weights",
+                                           (self.intent_feature_size,
+                                            self.hidden_size),
+                                           initializer=tf.truncated_normal_initializer(stddev=0.2))
+            _db_weights = tf.get_variable("db_weights",
+                                           (self.db_feature_size,
+                                            self.hidden_size),
+                                           initializer=tf.truncated_normal_initializer(stddev=0.2))
+            output = tf.matmul(enc_feats, _enc_weights) + tf.matmul(intent_features, _intent_weights) + tf.matmul(db_features, _db_weights)
+            output = tf.tanh(output)
+        return output
 
     def _build_decoder(self, scope="Decoder"):
         with tf.variable_scope(scope):
