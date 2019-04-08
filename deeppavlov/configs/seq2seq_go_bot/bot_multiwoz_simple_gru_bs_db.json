@@ -77,7 +77,7 @@
         "embedder": "#token_embedder",
         "network_parameters": {
           "l2_regs": [0.00001, 0.00001],
-          "cell_type": "gru",
+          "cell_type": "lstm",
           "intent_feature_size": "#state_featurizer.len",
           "db_feature_size": 30,
           "encoder_agg_method": "weight_sum",

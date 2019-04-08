@@ -295,7 +295,9 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                                                          _state[1][0]])
                 _state_h = self._aggregate_encoder_outs([_state[0][1],
                                                          _state[1][1]])
-                _state = self._build_intent(_state_c, self._intent_feats, self._db_pointer)
+                _state_c_intent = self._build_intent(_state_c, self._intent_feats, self._db_pointer)
+                _state_h_intent = self._build_intent(_state_h, self._intent_feats, self._db_pointer)
+                _state = tf.nn.rnn_cell.LSTMStateTuple(_state_c_intent, _state_h_intent)
             else:
                 _state = self._aggregate_encoder_outs(_state)
                 _state = self._build_intent(_state, self._intent_feats, self._db_pointer)
