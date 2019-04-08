@@ -381,9 +381,9 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
             else:
                 with tf.variable_scope("OutputDense"):
                     # TODO: PUT DB FEATS IN HERE!!!
-                    _projection_layer = DenseWithConcat(self.tgt_vocab_size, self._intent_feats, self._db_pointer)
-                    # _projection_layer = tf.layers.Dense(self.tgt_vocab_size,
-                    #                                     use_bias=False)
+                    #_projection_layer = DenseWithConcat(self.tgt_vocab_size, self._intent_feats, self._db_pointer)
+                    _projection_layer = tf.layers.Dense(self.tgt_vocab_size,
+                                                         use_bias=False)
 
             def _build_step_fn(memory, memory_seq_len, init_state, scope, reuse=None):
                 with tf.variable_scope("decode_with_shared_attention", reuse=reuse):

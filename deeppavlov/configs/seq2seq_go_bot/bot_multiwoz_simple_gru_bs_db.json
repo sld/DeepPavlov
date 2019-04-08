@@ -87,7 +87,7 @@
           "learning_rate_drop_div": 2.0,
           "dropout_rate": 0.0,
           "state_dropout_rate": 0.0,
-          "beam_width": 1,
+          "beam_width": 10,
           "target_start_of_sequence_index": "#tgt_token_vocab.__getitem__('<SOS>')",
           "target_end_of_sequence_index": "#tgt_token_vocab.__getitem__('<EOS>')",
           "target_vocab_size": "#tgt_token_vocab.len",
