@@ -107,8 +107,8 @@ class SkillDialogDatasetIterator(DataLearningIterator):
                 history = []
             history.append(x['text'])
             history.append(y['text'])
-            x['history'] = history[:-2]            
-            x_tuple = (x['text'], x['history'], y.get('state', {}), x['db_pointer'])
+            x['history'] = history[:-2]
+            x_tuple = (x['text'], x['history'], y.get('state', {}), x['db_pointer'], x['graph_vector'])
             y_tuple = [y[k] for k in self.y_names]
             if len(y_tuple) == 1:
                 y_tuple = y_tuple[0]

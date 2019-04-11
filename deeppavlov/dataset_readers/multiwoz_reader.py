@@ -27,6 +27,7 @@ from deeppavlov.core.data.dataset_reader import DatasetReader
 from deeppavlov.core.data.utils import download_decompress, mark_done
 
 import deeppavlov.contrib.multiwoz_db_pointer as db_pointer
+import deeppavlov.contrib.multiwoz_graph_helper as graph_helper
 
 log = getLogger()
 
@@ -119,7 +120,8 @@ class MultiWOZDatasetReader(DatasetReader):
     def _format_turn(turn):
         x = {'text': turn[0]['text'],
              'dialog_id': turn[0]['dialog_id'],
-             'db_pointer': turn[0]['db_pointer']}
+             'db_pointer': turn[0]['db_pointer'],
+             'graph_vector': turn[0]['graph_vector']}
         if turn[0].get('episode_done') is not None:
             x['episode_done'] = turn[0]['episode_done']
         y = {'text': turn[1]['text'],
@@ -179,6 +181,7 @@ class MultiWOZDatasetReader(DatasetReader):
                 if is_user:
                     replica['dialog_id'] = dialog_id
                     replica['tags'] = turn['tags']
+                    replica['graph_vector'] = turn['graph_vector']
                     replica['db_pointer'] = turn.get('db_pointer', default_db_pointer)
                     utterances.append(replica)
                 else:
@@ -584,6 +587,10 @@ class MultiWOZDatasetReader(DatasetReader):
 
         return pointer_vector
 
+    @classmethod
+    def get_graph_vector(cls, dialogue_name, raw_text, st):
+        one_hot = graph_helper.get_one_hot(dialogue_name, raw_text, st)
+        return one_hot
 
     @classmethod
     def preprocess_data(cls, data_file: Union[str, Path],
@@ -634,6 +641,7 @@ class MultiWOZDatasetReader(DatasetReader):
                     pointer_vector = cls.add_booking_pointer(dialogue, turn, pointer_vector)
                     #print pointer_vector
                     dialogue['log'][idx - 1]['db_pointer'] = pointer_vector.tolist()
+                dialogue['log'][idx]['graph_vector'] = cls.get_graph_vector(dialogue_name, dialogue['log'][idx]['raw_text'], idx)
 
                 idx_acts += 1
 

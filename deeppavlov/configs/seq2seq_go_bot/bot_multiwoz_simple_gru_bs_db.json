@@ -9,7 +9,7 @@
     "shuffle": false
   },
   "chainer": {
-    "in": ["x_text", "history_list", "state", "db_pointer"],
+    "in": ["x_text", "history_list", "state", "db_pointer", "graph_vector"],
     "in_y": ["y_text", "y_domains"],
     "out": ["prediction_text", "confidence", "state"],
     "pipe": [
@@ -64,7 +64,7 @@
         "out": ["state_feats"]
       },
       {
-        "in": ["x_tokens", "history_tok_list", "state_feats", "db_pointer"],
+        "in": ["x_tokens", "history_tok_list", "state_feats", "db_pointer", "graph_vector"],
         "in_y": ["y_tokens"],
         "out": ["prediction_tokens", "confidence"],
         "main": true,
@@ -80,6 +80,7 @@
           "cell_type": "lstm",
           "intent_feature_size": "#state_featurizer.len",
           "db_feature_size": 30,
+          "graph_feature_size": 56,
           "encoder_agg_method": "weight_sum",
           "encoder_use_cudnn": true,
           "learning_rate": 5e-3,

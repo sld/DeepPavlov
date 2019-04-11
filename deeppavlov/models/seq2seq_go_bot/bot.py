@@ -78,6 +78,8 @@ class Seq2SeqGoalOrientedBot(NNModel):
             (network_parameters.get('intent_feature_size', 0) > 0)
         self.use_db_features = \
             (network_parameters.get('db_feature_size', 0) > 0)
+        self.use_graph_features = \
+            (network_parameters.get('graph_feature_size', 0) > 0)
         self.use_kb_attention = (self.kb_size != 0)
         self.network = self._init_network(network_parameters, use_ner_head=self.use_ner_head)
 
@@ -115,9 +117,10 @@ class Seq2SeqGoalOrientedBot(NNModel):
     def preprocess(self, *args):
         state_feats = None
         db_pointer = itertools.repeat([])
+        graph_vec = itertools.repeat([])
         kb_entry_list = itertools.repeat([])
         x_tags = itertools.repeat([])
-        utters, history_list, state_feats, db_pointer, responses = args
+        utters, history_list, state_feats, db_pointer, graph_vec, responses = args
         # if self.use_state_features:
         #     state_feats = args.pop()
         # if self.use_kb_attention:
@@ -185,7 +188,7 @@ class Seq2SeqGoalOrientedBot(NNModel):
                     b_src_lens, b_tgt_masks_np, b_src_tag_masks_np,
                     state_feats, b_kb_masks_np)
         return (b_enc_ins_np, b_dec_ins_np, b_dec_outs_np,
-                b_src_lens, b_tgt_masks_np, state_feats, b_kb_masks_np, db_pointer)
+                b_src_lens, b_tgt_masks_np, state_feats, b_kb_masks_np, db_pointer, graph_vec)
 
     def train_on_batch(self, *args):
         return self.network.train_on_batch(*self.preprocess(*args))
@@ -231,6 +234,7 @@ class Seq2SeqGoalOrientedBot(NNModel):
                  history_list: List[List[List[str]]],
                  state_feats: List[List[Any]] = None,
                  db_pointer: List[Any] = None,
+                 graph_vec: List[Any] = None,
                  kb_entry_list: List[dict] = itertools.repeat([])) ->\
             Tuple[List[str], List[float]]:
         b_enc_ins, b_src_lens = [], []
@@ -269,7 +273,7 @@ class Seq2SeqGoalOrientedBot(NNModel):
             return preds, [0.5] * len(preds), tag_idxs
 
         pred_idxs = self.network(b_enc_ins_np, b_src_lens, state_feats,
-                                 b_kb_masks_np, db_pointer)
+                                 b_kb_masks_np, db_pointer, graph_vec)
         preds = self._decode_response(pred_idxs)
         if self.debug:
             log.debug("Dialog prediction = \"{}\"".format(preds[-1]))
