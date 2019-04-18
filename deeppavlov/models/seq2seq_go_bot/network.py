@@ -233,6 +233,9 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
         self._graph_feats = tf.placeholder(tf.float32,
                                           [None, self.graph_feature_size],
                                           name='graph_features')
+        self._graph_ans_feats = tf.placeholder(tf.float32,
+                                          [None, self.graph_feature_size],
+                                          name='graph_ans_features')
         # _decoder_embedding: [tgt_vocab_size + kb_size, embedding_size]
         # TODO: try training decoder embeddings
         self._decoder_embedding = \
@@ -301,12 +304,15 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                                                          _state[1][0]])
                 _state_h = self._aggregate_encoder_outs([_state[0][1],
                                                          _state[1][1]])
-                _state_c_intent = self._build_intent(_state_c, self._intent_feats, self._db_pointer, self._graph_feats)
-                _state_h_intent = self._build_intent(_state_h, self._intent_feats, self._db_pointer, self._graph_feats)
+                _state_c_intent = self._build_intent(_state_c, self._intent_feats, self._db_pointer,
+                    self._graph_feats, self._graph_ans_feats)
+                _state_h_intent = self._build_intent(_state_h, self._intent_feats, self._db_pointer,
+                    self._graph_feats, self._graph_ans_feats)
                 _state = tf.nn.rnn_cell.LSTMStateTuple(_state_c_intent, _state_h_intent)
             else:
                 _state = self._aggregate_encoder_outs(_state)
-                _state = self._build_intent(_state, self._intent_feats, self._db_pointer, self._graph_feats)
+                _state = self._build_intent(_state, self._intent_feats, self._db_pointer,
+                    self._graph_feats, self._graph_ans_feats)
 
             # TODO: add & validate cell dropout
             # NOTE: not available for CUDNN cells?
@@ -344,7 +350,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                 outs = tf.reduce_sum(outs, -1)
         return outs
 
-    def _build_intent(self, enc_feats, intent_features, db_features, graph_features, scope="Intent"):
+    def _build_intent(self, enc_feats, intent_features, db_features, graph_features, graph_ans_feats, scope="Intent"):
         with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
             _enc_weights = tf.get_variable("encoder_weights",
                                            (self.encoder_agg_size,
@@ -362,8 +368,13 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                                            (self.graph_feature_size,
                                             self.hidden_size),
                                            initializer=tf.truncated_normal_initializer(stddev=0.2))
+            _graph_ans_weights = tf.get_variable("graph_ans_weights",
+                                           (self.graph_feature_size,
+                                            self.hidden_size),
+                                           initializer=tf.truncated_normal_initializer(stddev=0.2))
             output = tf.matmul(enc_feats, _enc_weights) + tf.matmul(intent_features, _intent_weights) + \
-              tf.matmul(db_features, _db_weights) + tf.matmul(graph_features, _graph_weights)
+              tf.matmul(db_features, _db_weights) + tf.matmul(graph_features, _graph_weights) + \
+              tf.matmul(graph_ans_feats, _graph_ans_weights)
             output = tf.tanh(output)
         return output
 
@@ -516,7 +527,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                 _predictions = _outputs_inf.predicted_ids[:, :, 0]
         return _logits, _predictions
 
-    def __call__(self, enc_inputs, src_seq_lens, intent_feats, kb_masks, db_pointer, graph_feats,
+    def __call__(self, enc_inputs, src_seq_lens, intent_feats, kb_masks, db_pointer, graph_feats, graph_ans_feats,
                  prob=False):
         dec_preds = self.sess.run(
             self._dec_preds,
@@ -528,7 +539,8 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                 self._intent_feats: intent_feats,
                 self._kb_mask: kb_masks,
                 self._db_pointer: db_pointer,
-                self._graph_feats: graph_feats
+                self._graph_feats: graph_feats,
+                self._graph_ans_feats: graph_ans_feats
             }
         )
 # TODO: implement infer probabilities
@@ -537,7 +549,8 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
         return dec_preds
 
     def train_on_batch(self, enc_inputs, dec_inputs, dec_outputs, src_seq_lens,
-                       tgt_masks, intent_feats, kb_masks, db_pointer, graph_feats):
+                       tgt_masks, intent_feats, kb_masks, db_pointer, graph_feats,
+                       graph_ans_feats):
         _, loss, dec_loss = self.sess.run(
             [self._train_op, self._loss, self._dec_loss],
             feed_dict={
@@ -551,7 +564,8 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                 self._intent_feats: intent_feats,
                 self._kb_mask: kb_masks,
                 self._db_pointer: db_pointer,
-                self._graph_feats: graph_feats
+                self._graph_feats: graph_feats,
+                self._graph_ans_feats: graph_ans_feats
             }
         )
         return {'loss': loss,
