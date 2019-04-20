@@ -102,7 +102,7 @@ class Seq2SeqGoalOrientedBot(NNModel):
         return Seq2SeqGoalOrientedBotNetwork(**params)
 
     def _embed_kb_key(self, key):
-# TODO: fasttext embedder to work with tokens
+        # TODO: fasttext embedder to work with tokens
         emb = np.array(self.embedder([key.split('_')], mean=True)[0])
         if self.debug:
             log.debug("embedding key tokens='{}', embedding shape = {}"
@@ -115,12 +115,15 @@ class Seq2SeqGoalOrientedBot(NNModel):
         return self.network.fit(*list(zip(*data)))
 
     def preprocess(self, *args):
+        graph_vec = None
         state_feats = None
         db_pointer = itertools.repeat([])
-        graph_vec = itertools.repeat([])
         kb_entry_list = itertools.repeat([])
         x_tags = itertools.repeat([])
-        utters, history_list, state_feats, db_pointer, graph_vec, responses = args
+        if self.use_graph_features:
+            utters, history_list, state_feats, db_pointer, graph_vec, responses = args
+        else:
+            utters, history_list, state_feats, db_pointer, responses = args
         # if self.use_state_features:
         #     state_feats = args.pop()
         # if self.use_kb_attention:
@@ -132,7 +135,8 @@ class Seq2SeqGoalOrientedBot(NNModel):
         # if self.use_ner_head:
         #     x_tags = args.pop()
 
-        state_feats = state_feats or [[1]] * len(utters)
+        state_feats = state_feats or [[]] * len(utters)
+        graph_vec = graph_vec or [[]] * len(utters)
 
         if self.use_ner_head:
             assert all(len(u) == len(t) for u, t in zip(utters, x_tags)), \
@@ -246,7 +250,9 @@ class Seq2SeqGoalOrientedBot(NNModel):
             b_src_lens.append(len(enc_in))
             # TODO: only last user utter is masked with ones, think of better way
         if state_feats is None:
-            state_feats = [[1]] * len(b_enc_ins)
+            state_feats = [[]] * len(b_enc_ins)
+        if graph_vec is None:
+            graph_vec = [[]] * len(b_enc_ins)
 
         # Sequence padding
         batch_size = len(b_enc_ins)
