@@ -19,6 +19,7 @@ from logging import getLogger
 
 import numpy as np
 import tensorflow as tf
+from tensorflow import truncated_normal_initializer as tn_initializer
 
 from deeppavlov.core.common.errors import ConfigError
 from deeppavlov.core.common.registry import register
@@ -85,7 +86,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                  encoder_use_cudnn: bool = False,
                  encoder_agg_method: str = "sum",
                  beam_width: int = 1,
-                 l2_regs: List[float] = [0.],
+                 l2_regs: List[float] = (0.,),
                  dropout_rate: float = 0.0,
                  state_dropout_rate: float = 0.0,
                  **kwargs) -> None:
@@ -231,8 +232,8 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                                           [None, self.db_feature_size],
                                           name='db_features')
         self._graph_feats = tf.placeholder(tf.float32,
-                                          [None, self.graph_feature_size],
-                                          name='graph_features')
+                                           [None, self.graph_feature_size],
+                                           name='graph_features')
         # _decoder_embedding: [tgt_vocab_size + kb_size, embedding_size]
         # TODO: try training decoder embeddings
         self._decoder_embedding = \
@@ -242,6 +243,8 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                             dtype=tf.float32,
                             initializer=tf.constant_initializer(self.decoder_embedding),
                             trainable=False)
+        # TODO: make training of embeddings a parameter
+                            #trainable=True)
         # _decoder_outputs: [batch_size, max_output_time]
         self._decoder_outputs = tf.placeholder(tf.int32,
                                                [None, None],
@@ -276,7 +279,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
             # _outputs: [2, batch_size, max_input_time, hidden_size]
             # _state: [2, batch_size, hidden_size]
             if self.encoder_use_cudnn:
-                if (self.l2_regs[0] > 0) or (self.l2_regs[1] > 0):
+                if any(reg > 0 for reg in self.l2_regs):
                     log.warning("cuDNN RNN are not l2 regularizable")
                 if self.cell_type == 'lstm':
                     _outputs, _state = cudnn_bi_lstm(_units,
@@ -295,18 +298,27 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
             # _outputs: [batch_size, max_input_time, aggregation_size]
             _outputs = self._aggregate_encoder_outs(_outputs)
             # _state: [batch_size, max_input_time, hidden_size]
-            if (self.cell_type == 'lstm') and\
-                    not isinstance(_state[0], tf.nn.rnn_cell.LSTMStateTuple):
+            if self.cell_type == 'lstm':
+                #     not isinstance(_state[0], tf.nn.rnn_cell.LSTMStateTuple):
                 _state_c = self._aggregate_encoder_outs([_state[0][0],
                                                          _state[1][0]])
                 _state_h = self._aggregate_encoder_outs([_state[0][1],
                                                          _state[1][1]])
-                _state_c_intent = self._build_intent(_state_c, self._intent_feats, self._db_pointer, self._graph_feats)
-                _state_h_intent = self._build_intent(_state_h, self._intent_feats, self._db_pointer, self._graph_feats)
+                _state_c_intent = self._build_intent(_state_c,
+                                                     self._intent_feats,
+                                                     self._db_pointer,
+                                                     self._graph_feats)
+                _state_h_intent = self._build_intent(_state_h,
+                                                     self._intent_feats,
+                                                     self._db_pointer,
+                                                     self._graph_feats)
                 _state = tf.nn.rnn_cell.LSTMStateTuple(_state_c_intent, _state_h_intent)
             else:
                 _state = self._aggregate_encoder_outs(_state)
-                _state = self._build_intent(_state, self._intent_feats, self._db_pointer, self._graph_feats)
+                _state = self._build_intent(_state,
+                                            self._intent_feats,
+                                            self._db_pointer,
+                                            self._graph_feats)
 
             # TODO: add & validate cell dropout
             # NOTE: not available for CUDNN cells?
@@ -344,26 +356,29 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                 outs = tf.reduce_sum(outs, -1)
         return outs
 
-    def _build_intent(self, enc_feats, intent_features, db_features, graph_features, scope="Intent"):
+    def _build_intent(self, enc_feats, intent_features, db_features, graph_features,
+                      scope="Intent"):
         with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
             _enc_weights = tf.get_variable("encoder_weights",
                                            (self.encoder_agg_size,
                                             self.hidden_size),
-                                           initializer=tf.truncated_normal_initializer(stddev=0.2))
+                                           initializer=tn_initializer(stddev=0.2))
             _intent_weights = tf.get_variable("intent_weights",
-                                           (self.intent_feature_size,
-                                            self.hidden_size),
-                                           initializer=tf.truncated_normal_initializer(stddev=0.2))
+                                              (self.intent_feature_size,
+                                               self.hidden_size),
+                                              initializer=tn_initializer(stddev=0.2))
             _db_weights = tf.get_variable("db_weights",
-                                           (self.db_feature_size,
-                                            self.hidden_size),
-                                           initializer=tf.truncated_normal_initializer(stddev=0.2))
+                                          (self.db_feature_size,
+                                           self.hidden_size),
+                                          initializer=tn_initializer(stddev=0.2))
             _graph_weights = tf.get_variable("graph_weights",
-                                           (self.graph_feature_size,
-                                            self.hidden_size),
-                                           initializer=tf.truncated_normal_initializer(stddev=0.2))
-            output = tf.matmul(enc_feats, _enc_weights) + tf.matmul(intent_features, _intent_weights) + \
-              tf.matmul(db_features, _db_weights) + tf.matmul(graph_features, _graph_weights)
+                                             (self.graph_feature_size,
+                                              self.hidden_size),
+                                             initializer=tn_initializer(stddev=0.2))
+            output = tf.matmul(enc_feats, _enc_weights) + \
+                tf.matmul(intent_features, _intent_weights) + \
+                tf.matmul(db_features, _db_weights) + \
+                tf.matmul(graph_features, _graph_weights)
             output = tf.tanh(output)
         return output
 
@@ -646,7 +661,7 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(Seq2SeqGoalOrientedBotNetwork):
                  encoder_use_cudnn: bool = False,
                  encoder_agg_method: str = "sum",
                  beam_width: int = 1,
-                 l2_regs: Tuple[float, float] = [0., 0.],
+                 l2_regs: Tuple[float, float] = (0., 0.),
                  dropout_rate: float = 0.0,
                  state_dropout_rate: float = 0.0,
                  **kwargs) -> None:
