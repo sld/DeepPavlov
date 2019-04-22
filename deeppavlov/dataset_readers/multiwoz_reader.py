@@ -45,7 +45,7 @@ class MultiWOZDatasetReader(DatasetReader):
                   'attraction_db.json', 'bus_db.json',
                   'hospital_db.json', 'hotel_db.json', 'police_db.json',
                   'restaurant_db.json', 'taxi_db.json', 'train_db.json']
-    PREPROCESSED = ['data_prep.json']
+    PREPROCESSED = 'data_prep.json'
 
     @classmethod
     @overrides
@@ -74,23 +74,28 @@ class MultiWOZDatasetReader(DatasetReader):
                      for fname in self.DATA_FILES if fname.endswith('_db.json')}
         print(databases)
 
-        if not all(Path(data_path, f).exists() for f in self.PREPROCESSED):
+        if not Path(data_path, self.PREPROCESSED).exists():
             log.info('[preprocessing multiwoz]')
             prep_data = self.preprocess_data(data_file, act_data_file, databases)
-            with open(Path(data_path, 'data_prep.json'), 'wt') as fout:
-                json.dump(prep_data, fout)
+            with open(Path(data_path, self.PREPROCESSED), 'wt') as fout:
+                json.dump(prep_data, fout, indent=2)
 
-        data_file = Path(data_path, 'data_prep.json')
+        data_file = Path(data_path, self.PREPROCESSED)
 
         valid_ids = self._read_indices(Path(data_path, 'valListFile.json'))
         test_ids = self._read_indices(Path(data_path, 'testListFile.json'))
         data = {
-            'train': self._read_dialogues(data_file, dialogs=dialogs,
+            'train': self._read_dialogues(data_file,
+                                          dialogs=dialogs,
                                           exclude_ids=valid_ids + test_ids,
                                           domains=domains),
-            'valid': self._read_dialogues(data_file, dialogs=dialogs, ids=valid_ids,
+            'valid': self._read_dialogues(data_file,
+                                          dialogs=dialogs,
+                                          ids=valid_ids,
                                           domains=domains),
-            'test':  self._read_dialogues(data_file, dialogs=dialogs, ids=test_ids,
+            'test':  self._read_dialogues(data_file,
+                                          dialogs=dialogs,
+                                          ids=test_ids,
                                           domains=domains)
         }
         return data
@@ -128,8 +133,7 @@ class MultiWOZDatasetReader(DatasetReader):
              'domains': turn[1]['domains'],
              'x_tags': turn[0]['tags'],
              'state': turn[1]['state'],
-             'graph_vector_ans': turn[1]['graph_vector']
-            }
+             'graph_vector_ans': turn[1]['graph_vector']}
         return (x, y)
 
     @staticmethod
@@ -595,7 +599,8 @@ class MultiWOZDatasetReader(DatasetReader):
         return one_hot
 
     @classmethod
-    def preprocess_data(cls, data_file: Union[str, Path],
+    def preprocess_data(cls,
+                        data_file: Union[str, Path],
                         act_data_file: Union[str, Path],
                         databases: Dict[str, Union[str, Path]]) -> Dict:
         domains = list(databases.keys())
@@ -615,7 +620,7 @@ class MultiWOZDatasetReader(DatasetReader):
                 sent = cls.sent_normalize(turn['text'])
                 sent = cls.delexicalise(sent, db_dict)
 
-                # parsing reference number GIDEN belief state
+                # parsing reference number GIVEN belief state
                 sent = cls.delexicalise_ref(sent, turn, domains)
 
                 # changes to number only here
@@ -624,15 +629,16 @@ class MultiWOZDatasetReader(DatasetReader):
                 # remove nested entities
                 sent = re.sub('\s+', ' ', cls.remove_nested_slots(sent)).strip()
 
-                dialogue['log'][idx]['text'] = sent
-
                 # FIXING delexicalization
+                dialogue['log'][idx]['text'] = sent
                 dialogue = cls.fix_delexicalization(dialogue_name, dialogue, act_data,
                                                      idx, idx_acts)
+                sent = dialogue['log'][idx]['text']
 
                 # create bio-markup
                 tokens, tags = cls.create_bio_markup(sent)
                 dialogue['log'][idx]['tokens'] = tokens
+                dialogue['log'][idx]['delex_text'] = sent
                 dialogue['log'][idx]['text'] = ' '.join(tokens)
                 dialogue['log'][idx]['tags'] = tags
 
