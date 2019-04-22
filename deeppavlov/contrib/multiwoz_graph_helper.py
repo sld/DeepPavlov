@@ -1,7 +1,8 @@
 import json
 
 
-FPATH = '/home/idris/.deeppavlov/downloads/multiwoz/multiwoz-for-deeppavlov.json'
+# FPATH = '/home/idris/.deeppavlov/downloads/multiwoz/multiwoz-for-deeppavlov.json'
+FPATH = '/home/vimary/.deeppavlov/downloads/multiwoz/multiwoz-for-deeppavlov.json'
 with open(FPATH, 'r') as f:
     data = json.load(f)
 
