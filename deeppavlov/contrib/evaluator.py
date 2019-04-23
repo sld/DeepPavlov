@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import re
 import random
 import json
 import argparse
+import itertools
 from pathlib import Path
 from typing import List
+from copy import copy
 
 from deeppavlov.contrib.multiwoz_db_pointer import queryResultVenues
 # from multiwoz_db_pointer import queryResultVenues
@@ -197,7 +200,6 @@ def evaluateGeneratedDialogue(dialog, goal, realDialogue, real_requestables):
         # special domains - entity does not need to be provided
         if domain in ['taxi', 'police', 'hospital']:
             venue_offered[domain] = '[' + domain + '_name]'
-
 
         if domain == 'train':
             if not venue_offered[domain]:
@@ -432,55 +434,97 @@ def evaluateRealDialogue(dialog,
     return goal, success, match, real_requestables, stats
 
 
-
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_path', '-d', type=str,
+    parser.add_argument('--data-path', '-d', type=str,
                         default='~/.deeppavlov/downloads/multiwoz/')
-    parser.add_argument('--config_path', '-c', type=str,
+    parser.add_argument('--config-path', '-c', type=str,
                         default='configs/seq2seq_go_bot/bot_multiwoz_simple_gru_bs_db_gr_ans.json')
+    parser.add_argument('--data-type', '-t', type=str, default='test')
     parser.add_argument('--test', '-T', action='store_true')
     parser.add_argument('--true-labels', '-L', action='store_true')
-    return parser.parse_args()
+    args = parser.parse_args()
+    args.data_path = Path(args.data_path).expanduser()
+    return args
+
+
+def load_eval_data(data_type: str = 'test'):
+    from deeppavlov.dataset_readers.multiwoz_reader import MultiWOZDatasetReader
+
+    dr = MultiWOZDatasetReader()
+    dr_eval_data = dr.read(data_path=args.data_path)
+    dr_eval_data = itertools.groupby(dr_eval_data[data_type],
+                                     key=lambda d: d[0]['dialog_id'])
+    dr_eval_data = {k: list(v) for k, v in dr_eval_data}
+
+    db_dict = dr.prepare_slot_dict(dr.databases)
+    return dr_eval_data, db_dict, dr
 
 
 if __name__ == "__main__":
+
     args = parse_args()
 
-    prep_file = Path(args.data_path, 'data_prep.json').expanduser()
+    dr_eval_data, db_dict, dr = load_eval_data(args.data_type)
+
+    prep_file = Path(args.data_path, 'data_prep.json')
+    print(f"Loading preprocessed dialogues from `{prep_file}`")
     delex_data = list(json.load(open(prep_file, 'rt')).items())
+    print(f"Loaded {len(delex_data)} dialogues")
+    delex_data = [(name, data) for name, data in delex_data if name in dr_eval_data]
+    print(f"{len(delex_data)} dialogues in `{args.data_type}` split")
+
     if args.test:
-        delex_data = delex_data[:10]
+        delex_data = delex_data[:20]
+    print(f"Evaluating {len(delex_data)} dialogues")
+
     if not args.true_labels:
-        from deeppavlov.dataset_readers.multiwoz_reader import MultiWOZDatasetReader
         from deeppavlov.dataset_iterators.dialog_iterator import SkillDialogDatasetIterator
         from deeppavlov import build_model
 
-
-        dr_data = MultiWOZDatasetReader().read(data_path=args.data_path)
-        dr_data = dict(itertools.groupby(dr_data['test'],
-                                         key=lambda d: d[0]['dialog_od']))
-        
-        model = build_model(args.config, download=False)
+        model = build_model(args.config_path, download=False)
 
     successes, matches, total = 0, 0, 0
 
-    for dial_name, dial in delex_data:
-        goal, _, _, requestables, _ = evaluateRealDialogue(dial)
- 
-        if not args.true_labels:
-            dr_dial = list(dr_data['dial_name'])
-            di = SkillDialogDatasetIterator(dr_dial, y_names=['text', 'domain'])
-            batch = di.gen_batches(batch_size=100, shuffle=False).__iter__()
-            preds = model(*list(zip(*batch[0])))
-            # TODO: add delexicalization
-        else:
-            preds = [t['delex_text']
-                     for i, t in enumerate(dial['log']) if i % 2 == 1]
-        s, m, _ = evaluateGeneratedDialogue(preds, goal, dial, requestables)
+    for dial_name, delex_dial in delex_data:
+        if 'delex_text' not in delex_dial['log'][0].keys():
+            print(f"{prep_file} must contain 'delex_text' keys"
+                  f", rebuild it with dataset reader")
 
-        successes += s
-        matches += m
+        if not args.true_labels:
+            dr_dial = list(dr_eval_data[dial_name])
+            di = SkillDialogDatasetIterator({'test': dr_dial}, shuffle=False)
+            batch = di.get_instances(data_type='test')
+            raw_preds = model(*list(zip(*batch[0])))[0]
+            # TODO: add delexicalization
+            preds, trues = [], []
+            dummy_pred_dial = copy(delex_dial)
+            for i, pred in enumerate(raw_preds):
+                pred = dr.sent_normalize(pred)
+                pred = dr.delexicalise(pred, db_dict)
+                turn = dummy_pred_dial['log'][2*i + 1]
+                pred = dr.delexicalise_ref(pred, turn, list(dr.databases.keys()))
+                pred = re.sub(dr.digitpat, '[\g<0>|value_count]', pred)
+                pred = re.sub('\s+', ' ', dr.remove_nested_slots(pred)).strip()
+                trues.append(delex_dial['log'][2*i+1]['delex_text'])
+                # FIXING delexicalization
+                #dummy_pred_dial['log'][2*i + 1]['text'] = pred
+                #dummy_pred_dial = dr.fix_delexicalization(dial_name, dummy_pred_dial, act_data,
+                #                                          idx, idx_acts)
+                preds.append(pred)
+            print(f"TRUE = {trues}")
+        else:
+            # print(dial['log'][0].keys())
+            preds = [t['delex_text']
+                     for i, t in enumerate(delex_dial['log']) if i % 2 == 1]
+        print(f"PRED = {preds}\n")
+
+        goal, s0, m0, requestables, _ = evaluateRealDialogue(delex_dial)
+
+        s, m, _ = evaluateGeneratedDialogue(preds, goal, delex_dial, requestables)
+
+        successes += s0
+        matches += m0
         total += 1
 
     print('Corpus Matches : %2.2f%%' % (matches / float(total) * 100))

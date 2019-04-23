@@ -70,13 +70,13 @@ class MultiWOZDatasetReader(DatasetReader):
 
         data_file = Path(data_path, 'data.json')
         act_data_file = Path(data_path, 'dialogue_acts.json')
-        databases = {fname[:-8]: Path(data_path, fname)
-                     for fname in self.DATA_FILES if fname.endswith('_db.json')}
-        print(databases)
+        self.databases = {fname[:-8]: Path(data_path, fname)
+                          for fname in self.DATA_FILES if fname.endswith('_db.json')}
+        print(self.databases)
 
         if not Path(data_path, self.PREPROCESSED).exists():
             log.info('[preprocessing multiwoz]')
-            prep_data = self.preprocess_data(data_file, act_data_file, databases)
+            prep_data = self.preprocess_data(data_file, act_data_file, self.databases)
             with open(Path(data_path, self.PREPROCESSED), 'wt') as fout:
                 json.dump(prep_data, fout, indent=2)
 
