@@ -336,7 +336,8 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                 # _graph_and_feats_pred: [batch_size, graph_ans_feature_size]
                 _graph_ans_feats = self._graph_ans_feats
                 if self.predict_graph_state:
-                    self._graph_ans_feats_pred = self._build_graph_ans_pred(_state_h)
+                    _state_agg = tf.concat([_state_h, self._graph_feats], axis=-1)
+                    self._graph_ans_feats_pred = self._build_graph_ans_pred(_state_agg)
                     _graph_ans_feats = tf.nn.softmax(self._graph_ans_feats_pred)
                 _state_c_intent = self._build_intent(_state_c,
                                                      self._intent_feats,
@@ -354,7 +355,8 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                 # _graph_and_feats_pred: [batch_size, graph_ans_feature_size]
                 _graph_ans_feats = self._graph_ans_feats
                 if self.predict_graph_state:
-                    self._graph_ans_feats_pred = self._build_graph_ans_pred(_state)
+                    _state_agg = tf.concat([_state, self._graph_feats], axis=-1)
+                    self._graph_ans_feats_pred = self._build_graph_ans_pred(_state_agg)
                     _graph_ans_feats = tf.nn.softmax(self._graph_ans_feats_pred)
                 _state = self._build_intent(_state,
                                             self._intent_feats,
