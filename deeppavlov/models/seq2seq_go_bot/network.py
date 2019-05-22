@@ -194,6 +194,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
         if self.predict_graph_state:
             self._graph_loss = self._build_graph_loss(self._graph_ans_feats_pred)
             self._loss = self._dec_loss + self.graph_loss_beta * self._graph_loss
+        else:
             self._loss = self._dec_loss
 
         self._train_op = self.get_train_op(self._loss, clip_norm=10)
