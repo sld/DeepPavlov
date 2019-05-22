@@ -403,7 +403,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
     def _build_graph_ans_pred(self, state, scope="graph_clf"):
         with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
             _weights = tf.get_variable("graph_ans_pred_weights",
-                                       (self.encoder_agg_size,
+                                       (self.encoder_agg_size + self.graph_feature_size,
                                         self.graph_feature_size),
                                        initializer=tn_initializer(stddev=0.2))
             _bias = tf.get_variable("graph_ans_pred_bias",

@@ -82,6 +82,7 @@
           "db_feature_size": 30,
           "graph_feature_size": 202,
           "graph_ans_feature_size": 202,
+          "predict_graph_state": null,
           "encoder_agg_method": "weight_sum",
           "encoder_use_cudnn": true,
           "learning_rate": 5e-3,
