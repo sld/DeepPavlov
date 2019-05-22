@@ -67,7 +67,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
     GRAPH_PARAMS = ['hidden_size', 'knowledge_base_size', 'target_vocab_size',
                     'embedding_size', 'intent_feature_size',
                     'db_feature_size', 'graph_feature_size',
-                    'graph_ans_feature_size',
+                    'graph_ans_feature_size', 'predict_graph_state',
                     'encoder_agg_method', 'encoder_agg_size',
                     'kb_embedding_control_sum', 'kb_attention_hidden_sizes',
                     'cell_type']
@@ -85,6 +85,8 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                  db_feature_size: int = 0,
                  graph_feature_size: int = 0,
                  graph_ans_feature_size: int = 0,
+                 predict_graph_state: bool = False,
+                 graph_loss_beta: float = 0.0,
                  encoder_use_cudnn: bool = False,
                  encoder_agg_method: str = "sum",
                  beam_width: int = 1,
@@ -125,6 +127,8 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
             'db_feature_size': int(db_feature_size or 0),
             'graph_feature_size': int(graph_feature_size or 0),
             'graph_ans_feature_size': int(graph_ans_feature_size or 0),
+            'predict_graph_state': predict_graph_state,
+            'graph_loss_beta': graph_loss_beta,
             'encoder_use_cudnn': encoder_use_cudnn,
             'encoder_agg_method': encoder_agg_method,
             'encoder_agg_size': encoder_agg_size,
@@ -166,6 +170,8 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
         self.db_feature_size = self.opt['db_feature_size']
         self.graph_feature_size = self.opt['graph_feature_size']
         self.graph_ans_feature_size = self.opt['graph_ans_feature_size']
+        self.predict_graph_state = self.opt['predict_graph_state']
+        self.graph_loss_beta = self.opt['graph_loss_beta']
         self.encoder_use_cudnn = self.opt['encoder_use_cudnn']
         self.encoder_agg_size = self.opt['encoder_agg_size']
         self.encoder_agg_method = self.opt['encoder_agg_method']
@@ -185,7 +191,10 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                                               scopes=["Encoder", "Decoder"],
                                               l2_reg=self.l2_regs[0])
 
-        self._loss = self._dec_loss
+        if self.predict_graph_state:
+            self._graph_loss = self._build_graph_loss(self._graph_ans_feats_pred)
+            self._loss = self._dec_loss + self.graph_loss_beta * self._graph_loss
+            self._loss = self._dec_loss
 
         self._train_op = self.get_train_op(self._loss, clip_norm=10)
 
@@ -211,6 +220,18 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
             reg_vars = [tf.losses.get_regularization_loss(scope=sc, name=f"{sc}_reg_loss")
                         for sc in scopes]
             _loss += l2_reg * tf.reduce_sum(reg_vars)
+        return _loss
+
+    def _build_graph_loss(self, logits):
+        # _loss_tensor: [batch_size]
+        _loss_tensor = \
+            tf.losses.softmax_cross_entropy(logits=logits,
+                                            onehot_labels=self._graph_ans_feats)
+        # check if loss has nans
+        _loss_tensor = \
+            tf.verify_tensor_all_finite(_loss_tensor, "Non finite values in loss tensor.")
+        # _loss: [1]
+        _loss = tf.reduce_sum(_loss_tensor)
         return _loss
 
     def _add_placeholders(self):
@@ -311,24 +332,34 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                                                          _state[1][0]])
                 _state_h = self._aggregate_encoder_outs([_state[0][1],
                                                          _state[1][1]])
+                # _graph_and_feats_pred: [batch_size, graph_ans_feature_size]
+                _graph_ans_feats = self._graph_ans_feats
+                if self.predict_graph_state:
+                    self._graph_ans_feats_pred = self._build_graph_ans_pred(_state_h)
+                    _graph_ans_feats = tf.nn.softmax(self._graph_ans_feats_pred)
                 _state_c_intent = self._build_intent(_state_c,
                                                      self._intent_feats,
                                                      self._db_pointer,
                                                      self._graph_feats,
-                                                     self._graph_ans_feats)
+                                                     _graph_ans_feats)
                 _state_h_intent = self._build_intent(_state_h,
                                                      self._intent_feats,
                                                      self._db_pointer,
                                                      self._graph_feats,
-                                                     self._graph_ans_feats)
+                                                     _graph_ans_feats)
                 _state = tf.nn.rnn_cell.LSTMStateTuple(_state_c_intent, _state_h_intent)
             else:
                 _state = self._aggregate_encoder_outs(_state)
+                # _graph_and_feats_pred: [batch_size, graph_ans_feature_size]
+                _graph_ans_feats = self._graph_ans_feats
+                if self.predict_graph_state:
+                    self._graph_ans_feats_pred = self._build_graph_ans_pred(_state)
+                    _graph_ans_feats = tf.nn.softmax(self._graph_ans_feats_pred)
                 _state = self._build_intent(_state,
                                             self._intent_feats,
                                             self._db_pointer,
                                             self._graph_feats,
-                                            self._graph_ans_feats)
+                                            _graph_ans_feats)
 
             # TODO: add & validate cell dropout
             # NOTE: not available for CUDNN cells?
@@ -365,6 +396,16 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                 outs = tf.stack(outs, -1)
                 outs = tf.reduce_sum(outs, -1)
         return outs
+
+    def _build_graph_ans_pred(self, state, scope="graph_clf"):
+        with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
+            _weights = tf.get_variable("graph_ans_pred_weights",
+                                       (self.encoder_agg_size,
+                                        self.graph_feature_size),
+                                       initializer=tn_initializer(stddev=0.2))
+            _bias = tf.get_variable("graph_ans_pred_bias",
+                                    initializer=tf.random_normal([self.graph_feature_size]))
+            return tf.matmul(state, _weights) + _bias
 
     def _build_intent(self, enc_feats, intent_feats, db_feats, graph_feats,
                       graph_ans_feats, scope="Intent"):
@@ -424,7 +465,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                     # TODO: PUT DB FEATS IN HERE!!!
                     #_projection_layer = DenseWithConcat(self.tgt_vocab_size, self._intent_feats, self._db_pointer)
                     _projection_layer = tf.layers.Dense(self.tgt_vocab_size,
-                                                         use_bias=False)
+                                                        use_bias=False)
 
             def _build_step_fn(memory, memory_seq_len, init_state, scope, reuse=None):
                 with tf.variable_scope("decode_with_shared_attention", reuse=reuse):
