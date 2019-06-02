@@ -119,10 +119,6 @@
       },
       {
         "name": "accuracy",
-        "inputs": ["y_text", "prediction_text"]
-      },
-      {
-        "name": "accuracy",
         "inputs": ["graph_ans_vector", "graph_ans_pred"]
       }
     ],
