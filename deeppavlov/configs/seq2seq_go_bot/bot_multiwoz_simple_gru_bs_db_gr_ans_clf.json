@@ -11,7 +11,7 @@
   "chainer": {
     "in": ["x_text", "history_list", "state", "db_pointer", "graph_vector", "graph_ans_vector"],
     "in_y": ["y_text", "y_domains"],
-    "out": ["prediction_text", "confidence", "state"],
+    "out": ["prediction_text", "confidence", "state", "graph_ans_pred"],
     "pipe": [
       {
         "id": "lazy_spacy_tokenizer",
@@ -66,7 +66,7 @@
       {
         "in": ["x_tokens", "history_tok_list", "state_feats", "db_pointer", "graph_vector", "graph_ans_vector"],
         "in_y": ["y_tokens"],
-        "out": ["prediction_tokens", "confidence"],
+        "out": ["prediction_tokens", "graph_ans_pred", "confidence"],
         "main": true,
         "class_name": "seq2seq_go_bot",
         "load_path": "{BOT_PATH}/model",
@@ -120,6 +120,10 @@
       {
         "name": "accuracy",
         "inputs": ["y_text", "prediction_text"]
+      },
+      {
+        "name": "accuracy",
+        "inputs": ["graph_ans_vector", "graph_ans_pred"]
       }
     ],
     "validation_patience": 60,

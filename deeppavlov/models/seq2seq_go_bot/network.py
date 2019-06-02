@@ -366,6 +366,11 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
 
             # TODO: add & validate cell dropout
             # NOTE: not available for CUDNN cells?
+        if self.predict_graph_state:
+            self._graph_ans_feats_pred_max = \
+                tf.one_hot(tf.cast(tf.reduce_max(self._graph_ans_feats_pred, axis=0),
+                                   tf.int32),
+                           self.graph_ans_feature_size)
 
         self._encoder_outputs = _outputs
         self._intent = _state
@@ -592,23 +597,30 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
 
     def __call__(self, enc_inputs, src_seq_lens, intent_feats, kb_masks, db_pointer, graph_feats, graph_ans_feats,
                  prob=False):
-        dec_preds = self.sess.run(
-            self._dec_preds,
-            feed_dict={
-                self._dropout_keep_prob: 1.,
-                self._state_dropout_keep_prob: 1.,
-                self._encoder_inputs: enc_inputs,
-                self._src_sequence_lengths: src_seq_lens,
-                self._intent_feats: intent_feats,
-                self._kb_mask: kb_masks,
-                self._db_pointer: db_pointer,
-                self._graph_feats: graph_feats,
-                self._graph_ans_feats: graph_ans_feats
-            }
-        )
 # TODO: implement infer probabilities
         if prob:
             raise NotImplementedError("Probs not available for now.")
+
+        feed_dict = {
+            self._dropout_keep_prob: 1.,
+            self._state_dropout_keep_prob: 1.,
+            self._encoder_inputs: enc_inputs,
+            self._src_sequence_lengths: src_seq_lens,
+            self._intent_feats: intent_feats,
+            self._kb_mask: kb_masks,
+            self._db_pointer: db_pointer,
+            self._graph_feats: graph_feats,
+            self._graph_ans_feats: graph_ans_feats
+        }
+
+        if self.predict_graph_state:
+            dec_preds, graph_pred = self.sess.run(
+                [self._dec_preds, self._graph_ans_feats_pred_max],
+                feed_dict=feed_dict)
+            return dec_preds, graph_pred.tolist()
+
+        dec_preds = self.sess.run(self._dec_preds, feed_dict=feed_dict)
+
         return dec_preds
 
     def train_on_batch(self, enc_inputs, dec_inputs, dec_outputs, src_seq_lens,

@@ -289,11 +289,19 @@ class Seq2SeqGoalOrientedBot(NNModel):
             preds = self._decode_response(pred_idxs)
             return preds, [0.5] * len(preds), tag_idxs
 
-        pred_idxs = self.network(b_enc_ins_np, b_src_lens, state_feats,
-                                 b_kb_masks_np, db_pointer, graph_vec, graph_ans_vec)
+        outputs = self.network(b_enc_ins_np, b_src_lens, state_feats,
+                               b_kb_masks_np, db_pointer, graph_vec, graph_ans_vec)
+        if isinstance(outputs[0], (int, np.int)):
+            pred_idxs, graph_pred = outputs, None
+        else:
+            pred_idxs, graph_pred = outputs
         preds = self._decode_response(pred_idxs)
+
         if self.debug:
             log.debug("Dialog prediction = \"{}\"".format(preds[-1]))
+
+        if graph_pred is not None:
+            return preds, graph_pred, [0.5] * len(preds)
         return preds, [0.5] * len(preds)
 
     def save(self):
